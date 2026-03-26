@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Resume Builder
 
-## Getting Started
+Повноцінний full-stack додаток для створення резюме з AI-асистентом.
 
-First, run the development server:
+## Технологічний стек
+
+- **Framework:** Next.js 16 (App Router)
+- **Styling:** Tailwind CSS v4
+- **Database:** Neon (PostgreSQL)
+- **ORM:** Drizzle ORM
+- **Auth:** NextAuth.js (Credentials provider)
+- **AI:** Groq SDK (Llama 3.3)
+- **Форматування:** Zod
+
+## Функціонал
+
+- ✅ Авторизація з 10 тестовими користувачами
+- ✅ Редактор резюме з попереднім переглядом у реальному часі
+- ✅ Автозбереження змін (debounce 1 сек)
+- ✅ AI покращення описів досвіду роботи
+- ✅ PDF експорт через браузерний друк
+- ✅ Вибір кольорової схеми
+- ✅ Адаптивний дизайн
+
+## Швидкий старт
+
+### 1. Встановлення залежностей
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Налаштування змінних оточення
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Створіть файл `.env.local` на основі `.env.example`:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+DATABASE_URL=your_neon_database_url
+GROQ_API_KEY=your_groq_api_key
+AUTH_SECRET=your_auth_secret
+```
 
-## Learn More
+Отримати AUTH_SECRET можна командою:
+```bash
+openssl rand -base64 32
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 3. Міграція бази даних
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm db:generate
+pnpm db:migrate
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 4. Seed тестових даних
 
-## Deploy on Vercel
+Створює 10 користувачів (user1@gmail.com ... user10@gmail.com) з паролем `user123`:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+pnpm db:seed
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 5. Запуск дев-сервера
+
+```bash
+pnpm dev
+```
+
+Відкрийте [http://localhost:3000](http://localhost:3000)
+
+## Тестові акаунти
+
+- **Email:** user1@gmail.com ... user10@gmail.com
+- **Пароль:** user123
+
+## Структура бази даних
+
+### users
+- `id` - serial (PK)
+- `email` - text (unique)
+- `password` - text (hashed)
+
+### resumes
+- `id` - uuid (PK)
+- `userId` - integer (FK → users.id)
+- `body` - jsonb (структура резюме)
+- `updatedAt` - timestamp
+
+## API Endpoints
+
+- `GET /api/resumes` - отримати всі резюме користувача
+- `GET /api/resumes/[id]` - отримати конкретне резюме
+- `PATCH /api/resumes/[id]` - оновити резюме (автозбереження)
+- `POST /api/ai/enhance` - AI покращення опису
+
+## Деплой
+
+Найпростіше задеплоїти на [Vercel](https://vercel.com):
+
+1. Підключіть GitHub репозиторій
+2. Додайте змінні оточення
+3. Задеплойте
+
+## Ліцензія
+
+MIT

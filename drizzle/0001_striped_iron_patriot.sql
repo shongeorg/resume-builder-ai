@@ -1,0 +1,1 @@
+ALTER TABLE "resumes" ADD COLUMN "name" text DEFAULT 'My Resume' NOT NULL;
