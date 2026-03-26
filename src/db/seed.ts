@@ -21,8 +21,8 @@ const emptyResumeBody = {
   },
   experience: [] as Array<{ id: number; company: string; position: string; period: string; desc: string }>,
   education: [] as Array<{ id: number; school: string; degree: string; period: string }>,
-  skills: [],
-  languages: '',
+  skills: ['React', 'JavaScript', 'TypeScript', 'CSS', 'HTML', 'Node.js'],
+  languages: 'English, Ukrainian',
 };
 
 async function seed() {

@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
+import { pdf } from '@react-pdf/renderer';
+import { ResumePDF, PDFPreview } from '@/components/ResumePDF';
 import {
   User,
   Mail,
@@ -78,8 +80,9 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
   const [saveMessage, setSaveMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isEnhancing, setIsEnhancing] = useState<number | null>(null);
+  const [previewScale, setPreviewScale] = useState(50);
 
-  const { control, watch, setValue } = useForm<ResumeData>({
+  const { control, watch, setValue, reset } = useForm<ResumeData>({
     defaultValues: emptyResume,
   });
 
@@ -101,11 +104,23 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
             setResumeName(data.name);
           }
           if (data.body) {
-            setValue('personal', data.body.personal);
-            setValue('experience', data.body.experience || []);
-            setValue('education', data.body.education || []);
-            setValue('skills', data.body.skills || []);
-            setValue('languages', data.body.languages || '');
+            if (data.body.themeColor) {
+              setThemeColor(data.body.themeColor);
+            }
+            reset({
+              personal: {
+                fullName: data.body.personal?.fullName || '',
+                title: data.body.personal?.title || '',
+                email: data.body.personal?.email || '',
+                phone: data.body.personal?.phone || '',
+                location: data.body.personal?.location || '',
+                github: data.body.personal?.github || '',
+              },
+              experience: data.body.experience || [],
+              education: data.body.education || [],
+              skills: data.body.skills || [],
+              languages: data.body.languages || '',
+            });
           }
         }
       } catch (error) {
@@ -116,7 +131,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     };
 
     loadResume();
-  }, [id, setValue]);
+  }, [id, reset]);
 
   // Create new resume on first edit
   const createNewResume = async () => {
@@ -146,7 +161,8 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
   };
 
   const updatePersonal = (field: keyof PersonalInfo, value: string) => {
-    setValue('personal', { ...formData.personal, [field]: value });
+    const currentPersonal = formData.personal || emptyResume.personal;
+    setValue('personal', { ...currentPersonal, [field]: value });
   };
 
   const addListEntry = (section: 'experience' | 'education') => {
@@ -178,8 +194,21 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     );
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleDownloadPDF = async () => {
+    try {
+      const blob = await pdf(
+        <ResumePDF data={formData} themeColor={themeColor} />
+      ).toBlob();
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${resumeName || 'resume'}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to generate PDF:', error);
+    }
   };
 
   const handleEnhanceWithAI = async (expId: number) => {
@@ -219,6 +248,41 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
     }
   };
 
+  const handleEnhanceEducationWithAI = async (eduId: number) => {
+    setIsEnhancing(eduId);
+    try {
+      const edu = formData.education.find((e) => e.id === eduId);
+      if (!edu) return;
+
+      const res = await fetch('/api/ai/enhance-education', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          school: edu.school,
+          degree: edu.degree,
+          period: edu.period,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const eduIndex = formData.education.findIndex((e) => e.id === eduId);
+        const newEducation = [...formData.education];
+        newEducation[eduIndex] = {
+          ...edu,
+          school: data.school || edu.school,
+          degree: data.degree || edu.degree,
+          period: data.period || edu.period,
+        };
+        setValue('education', newEducation);
+      }
+    } catch (error) {
+      console.error('Failed to enhance education with AI:', error);
+    } finally {
+      setIsEnhancing(null);
+    }
+  };
+
   const handleSaveResume = async () => {
     if (id === 'new') {
       // Create new resume - redirect to first existing resume
@@ -245,19 +309,22 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: resumeName,
-          body: formData,
+          body: {
+            ...formData,
+            themeColor,
+          },
         }),
       });
 
       if (res.ok) {
-        setSaveMessage('Резюме збережено!');
+        setSaveMessage('Resume saved!');
         setTimeout(() => setSaveMessage(''), 3000);
       } else {
-        setSaveMessage('Помилка збереження');
+        setSaveMessage('Save failed');
       }
     } catch (error) {
       console.error('Failed to save resume:', error);
-      setSaveMessage('Помилка збереження');
+      setSaveMessage('Save failed');
     } finally {
       setIsSaving(false);
     }
@@ -273,8 +340,8 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col lg:flex-row">
-      {/* Ліва панель - Редактор */}
-      <div className="w-full lg:w-1/2 p-6 overflow-y-auto max-h-screen bg-white shadow-xl print:hidden">
+      {/* Left Panel - Editor */}
+      <div className="w-full lg:w-[45%] p-6 overflow-y-auto max-h-screen bg-white shadow-xl print:hidden">
         <header className="mb-8 flex flex-col gap-4 border-b pb-4">
           <div className="flex justify-between items-center w-full">
             <div className="flex items-center gap-4">
@@ -285,7 +352,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                 <ArrowLeft size={24} />
               </Link>
               <div>
-                <h1 className="text-2xl font-bold text-slate-800">Редактор Резюме</h1>
+                <h1 className="text-2xl font-bold text-slate-800">Resume Editor</h1>
                 <p className="text-sm text-slate-500">
                   {saveMessage && (
                     <span className="text-green-600 font-medium">{saveMessage}</span>
@@ -299,88 +366,101 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                 value={themeColor}
                 onChange={(e) => setThemeColor(e.target.value)}
                 className="w-8 h-8 rounded cursor-pointer border-2 border-slate-200"
-                title="Колір оформлення"
+                title="Theme color"
               />
               <button
                 onClick={handleSaveResume}
                 disabled={isSaving}
-                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition font-medium shadow-sm disabled:opacity-50"
+                className="flex items-center gap-1.5 bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition font-medium shadow-sm disabled:opacity-50 text-sm"
               >
-                <Save size={18} />
-                {isSaving ? 'Збереження...' : 'Зберегти резюме'}
+                <Save size={16} />
+                {isSaving ? 'Saving...' : 'Save'}
               </button>
               <button
-                onClick={handlePrint}
-                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium shadow-sm"
+                onClick={handleDownloadPDF}
+                className="flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition font-medium shadow-sm text-sm"
               >
-                <Download size={18} /> Експорт PDF
+                <Download size={16} />
+                PDF
               </button>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <label className="text-sm font-semibold text-slate-700">Назва резюме:</label>
+            <label className="text-sm font-semibold text-slate-700">Resume Name:</label>
             <input
               type="text"
               value={resumeName}
               onChange={(e) => setResumeName(e.target.value)}
               className="flex-1 max-w-xs p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-              placeholder="Введіть назву резюме"
+              placeholder="Enter resume name"
             />
+          </div>
+          <div className="flex items-center gap-4">
+            <label className="text-sm font-semibold text-slate-700">Preview Scale:</label>
+            <input
+              type="range"
+              min="50"
+              max="100"
+              value={previewScale}
+              onChange={(e) => setPreviewScale(Number(e.target.value))}
+              className="w-32"
+            />
+            <span className="text-sm text-slate-600 font-medium">{previewScale}%</span>
           </div>
         </header>
 
-        {/* Контактна інформація */}
+        {/* Contact Information */}
         <section className="mb-8">
           <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-700">
-            <User size={18} /> Контакти
+            <User size={18} /> Contact Information
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-slate-500 ml-1">
-                Прізвище та ім'я
+                Full Name
               </label>
               <input
                 className="p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
-                value={formData.personal.fullName}
+                value={formData.personal?.fullName || ''}
                 onChange={(e) => updatePersonal('fullName', e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-slate-500 ml-1">
-                Посада
+                Position
               </label>
               <input
                 className="p-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
-                value={formData.personal.title}
+                value={formData.personal?.title || ''}
                 onChange={(e) => updatePersonal('title', e.target.value)}
               />
             </div>
             <input
               placeholder="Email"
               className="p-2 border rounded-md"
-              value={formData.personal.email}
+              value={formData.personal?.email || ''}
               onChange={(e) => updatePersonal('email', e.target.value)}
             />
             <input
-              placeholder="Телефон"
+              placeholder="Phone"
               className="p-2 border rounded-md"
-              value={formData.personal.phone}
+              value={formData.personal?.phone || ''}
               onChange={(e) => updatePersonal('phone', e.target.value)}
             />
           </div>
         </section>
 
-        {/* Досвід роботи */}
+        {/* Work Experience */}
         <section className="mb-8">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold flex items-center gap-2 text-slate-700">
-              <Briefcase size={18} /> Досвід роботи
+              <Briefcase size={18} /> Work Experience
             </h2>
             <button
               onClick={() => addListEntry('experience')}
               className="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded flex items-center gap-1 text-sm font-semibold"
             >
-              <Plus size={16} /> Додати
+              <Plus size={16} /> Add
             </button>
           </div>
           {formData.experience.map((exp) => (
@@ -396,7 +476,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
               </button>
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <input
-                  placeholder="Компанія"
+                  placeholder="Company"
                   className="p-2 border rounded bg-white text-sm"
                   value={exp.company}
                   onChange={(e) =>
@@ -404,7 +484,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                   }
                 />
                 <input
-                  placeholder="Посада"
+                  placeholder="Position"
                   className="p-2 border rounded bg-white text-sm"
                   value={exp.position}
                   onChange={(e) =>
@@ -412,7 +492,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                   }
                 />
                 <input
-                  placeholder="Період (н-р: 2021 - 2024)"
+                  placeholder="Period (e.g.: 2021 - 2024)"
                   className="p-2 border rounded bg-white col-span-2 text-sm"
                   value={exp.period}
                   onChange={(e) =>
@@ -422,7 +502,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
               </div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-slate-500">
-                  Опис досягнень
+                  Description
                 </span>
                 <button
                   onClick={() => handleEnhanceWithAI(exp.id)}
@@ -430,11 +510,11 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                   className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 disabled:opacity-50"
                 >
                   <Sparkles size={14} />
-                  {isEnhancing === exp.id ? 'Enhancing...' : 'AI Покращити'}
+                  {isEnhancing === exp.id ? 'Enhancing...' : 'AI Enhance'}
                 </button>
               </div>
               <textarea
-                placeholder="Опис досягнень..."
+                placeholder="Describe your achievements..."
                 className="w-full p-2 border rounded bg-white h-24 text-sm"
                 value={exp.desc}
                 onChange={(e) =>
@@ -445,18 +525,20 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
           ))}
         </section>
 
-        {/* Освіта */}
+        {/* Education */}
         <section className="mb-8">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold flex items-center gap-2 text-slate-700">
-              <GraduationCap size={18} /> Освіта
+              <GraduationCap size={18} /> Education
             </h2>
-            <button
-              onClick={() => addListEntry('education')}
-              className="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded flex items-center gap-1 text-sm font-semibold"
-            >
-              <Plus size={16} /> Додати
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => addListEntry('education')}
+                className="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded flex items-center gap-1 text-sm font-semibold"
+              >
+                <Plus size={16} /> Add
+              </button>
+            </div>
           </div>
           {formData.education.map((edu) => (
             <div
@@ -469,9 +551,19 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
               >
                 <Trash2 size={16} />
               </button>
+              <div className="flex justify-end mb-2">
+                <button
+                  onClick={() => handleEnhanceEducationWithAI(edu.id)}
+                  disabled={isEnhancing === edu.id}
+                  className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-700 disabled:opacity-50"
+                >
+                  <Sparkles size={14} />
+                  {isEnhancing === edu.id ? 'Enhancing...' : 'AI Enhance'}
+                </button>
+              </div>
               <div className="grid grid-cols-1 gap-3">
                 <input
-                  placeholder="Навчальний заклад"
+                  placeholder="School / University"
                   className="p-2 border rounded bg-white text-sm"
                   value={edu.school}
                   onChange={(e) =>
@@ -479,7 +571,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                   }
                 />
                 <input
-                  placeholder="Ступінь / Спеціальність"
+                  placeholder="Degree / Field of Study"
                   className="p-2 border rounded bg-white text-sm"
                   value={edu.degree}
                   onChange={(e) =>
@@ -487,7 +579,7 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
                   }
                 />
                 <input
-                  placeholder="Рік закінчення"
+                  placeholder="Graduation Year"
                   className="p-2 border rounded bg-white text-sm"
                   value={edu.period}
                   onChange={(e) =>
@@ -501,12 +593,12 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
 
         <section className="mb-8">
           <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-700 border-b pb-2">
-            <Code size={18} /> Навички
+            <Code size={18} /> Skills
           </h2>
           <textarea
             placeholder="React, JavaScript, SQL..."
             className="w-full p-2 border rounded h-20 text-sm"
-            value={formData.skills.join(', ')}
+            value={formData.skills?.join(', ') || ''}
             onChange={(e) =>
               setValue('skills', e.target.value.split(',').map((s) => s.trim()))
             }
@@ -515,157 +607,19 @@ export default function EditorPage({ params }: { params: Promise<{ id: string }>
 
         <section className="mb-8">
           <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-700 border-b pb-2">
-            <Languages size={18} /> Мови
+            <Languages size={18} /> Languages
           </h2>
           <input
             className="w-full p-2 border rounded text-sm"
-            value={formData.languages}
+            value={formData.languages || ''}
             onChange={(e) => setValue('languages', e.target.value)}
           />
         </section>
       </div>
 
-      {/* Права панель - Попередній перегляд (A4) */}
-      <div className="w-full lg:w-1/2 p-4 lg:p-8 bg-slate-500 flex justify-center overflow-y-auto">
-        <div
-          id="resume-preview"
-          className="bg-white w-[210mm] min-h-[297mm] shadow-2xl p-[15mm] text-slate-800 print:shadow-none print:m-0 print:w-full"
-        >
-          {/* Header */}
-          <header
-            className="border-b-4 pb-6 mb-8"
-            style={{ borderColor: themeColor }}
-          >
-            <h1
-              className="text-4xl font-extrabold uppercase tracking-tight mb-2"
-              style={{ color: themeColor }}
-            >
-              {formData.personal.fullName || "Ваше Ім'я"}
-            </h1>
-            <p className="text-xl font-medium text-slate-600 mb-4 tracking-wide">
-              {formData.personal.title || 'Посада'}
-            </p>
-
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm text-slate-600">
-              <div className="flex items-center gap-2">
-                <Mail size={14} style={{ color: themeColor }} />{' '}
-                {formData.personal.email}
-              </div>
-              <div className="flex items-center gap-2">
-                <Phone size={14} style={{ color: themeColor }} />{' '}
-                {formData.personal.phone}
-              </div>
-              <div className="flex items-center gap-2">
-                <MapPin size={14} style={{ color: themeColor }} />{' '}
-                {formData.personal.location}
-              </div>
-              {formData.personal.github && (
-                <div className="flex items-center gap-2">
-                  <LinkIcon size={14} style={{ color: themeColor }} />{' '}
-                  {formData.personal.github}
-                </div>
-              )}
-            </div>
-          </header>
-
-          <div className="grid grid-cols-3 gap-8">
-            {/* Основна частина */}
-            <div className="col-span-2">
-              <section className="mb-8">
-                <h3
-                  className="text-lg font-bold border-b-2 mb-4 pb-1 uppercase tracking-wider"
-                  style={{ color: themeColor, borderColor: themeColor }}
-                >
-                  Досвід роботи
-                </h3>
-                {formData.experience.map((exp) => (
-                  <div key={exp.id} className="mb-6 last:mb-0">
-                    <div className="flex justify-between items-baseline mb-1">
-                      <h4 className="font-bold text-slate-800 text-base">
-                        {exp.position}
-                      </h4>
-                      <span className="text-xs font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded">
-                        {exp.period}
-                      </span>
-                    </div>
-                    <div
-                      className="text-sm font-semibold mb-2"
-                      style={{ color: themeColor }}
-                    >
-                      {exp.company}
-                    </div>
-                    <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
-                      {exp.desc}
-                    </p>
-                  </div>
-                ))}
-              </section>
-
-              <section>
-                <h3
-                  className="text-lg font-bold border-b-2 mb-4 pb-1 uppercase tracking-wider"
-                  style={{ color: themeColor, borderColor: themeColor }}
-                >
-                  Освіта
-                </h3>
-                {formData.education.map((edu) => (
-                  <div key={edu.id} className="mb-4 last:mb-0">
-                    <div className="flex justify-between items-baseline">
-                      <h4 className="font-bold text-slate-800 text-sm">
-                        {edu.school}
-                      </h4>
-                      <span className="text-xs font-semibold text-slate-400">
-                        {edu.period}
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-600 italic">{edu.degree}</p>
-                  </div>
-                ))}
-              </section>
-            </div>
-
-            {/* Бокова панель резюме */}
-            <div className="col-span-1">
-              <section className="mb-8">
-                <h3
-                  className="text-lg font-bold border-b-2 mb-4 pb-1 uppercase tracking-wider"
-                  style={{ color: themeColor, borderColor: themeColor }}
-                >
-                  Навички
-                </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {formData.skills.map(
-                    (skill, i) =>
-                      skill && (
-                        <span
-                          key={i}
-                          className="px-2 py-1 bg-slate-100 text-slate-700 text-[11px] font-bold rounded uppercase tracking-tighter"
-                        >
-                          {skill}
-                        </span>
-                      )
-                  )}
-                </div>
-              </section>
-
-              <section className="mb-8">
-                <h3
-                  className="text-lg font-bold border-b-2 mb-4 pb-1 uppercase tracking-wider"
-                  style={{ color: themeColor, borderColor: themeColor }}
-                >
-                  Мови
-                </h3>
-                <p className="text-sm text-slate-600 leading-relaxed">
-                  {formData.languages}
-                </p>
-              </section>
-
-              <div className="mt-20 pt-10 border-t border-slate-100 text-[9px] text-slate-300 uppercase tracking-widest text-center">
-                Створено в ResumeBuilder
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Right Panel - PDF Preview */}
+      <div className="w-full lg:w-[50%] overflow-hidden">
+        <PDFPreview data={formData} themeColor={themeColor} scale={previewScale} />
       </div>
 
       <style>{`

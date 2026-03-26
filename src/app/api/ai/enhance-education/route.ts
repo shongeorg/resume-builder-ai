@@ -10,30 +10,26 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { position, description, company, period } = await request.json();
+    const { school, degree, period } = await request.json();
 
-    const prompt = `You are a professional resume writer. I need you to:
-1. Enhance the job description to make it more impactful and professional
-2. Extract/normalize the company name, position title, and work period
-3. If any field is empty or says "Not Provided", generate realistic placeholder data
+    const prompt = `You are a professional resume writer. Generate realistic education data for a resume.
 
-Position: ${position || 'Not provided'}
-Company: ${company || 'Not provided'}
+School/University: ${school || 'Not provided'}
+Degree: ${degree || 'Not provided'}
 Period: ${period || 'Not provided'}
-Current description: ${description || 'No description provided'}
+
+If any field is empty or says "Not provided", generate realistic placeholder data.
 
 Return a JSON object with these fields:
-- enhanced: 3-5 bullet points with achievements using action verbs and quantifiable results
-- company: the company name (generate realistic one if "Not provided")
-- position: the job title (generate realistic one if "Not provided")
-- period: work period in format "YYYY - YYYY" or "YYYY - Present" (generate if "Not provided")
+- school: realistic university/school name (e.g., "University of California, Berkeley")
+- degree: realistic degree with field of study (e.g., "Bachelor of Science in Computer Science")
+- period: graduation period in format "YYYY - YYYY" (e.g., "2018 - 2022")
 
 Example response format:
 {
-  "enhanced": "* Achievement 1 with metrics\\n* Achievement 2 with metrics",
-  "company": "Company Name",
-  "position": "Job Title",
-  "period": "2021 - Present"
+  "school": "Stanford University",
+  "degree": "Master of Science in Computer Science",
+  "period": "2020 - 2022"
 }
 
 Return ONLY the JSON, no other text.`;
@@ -51,7 +47,7 @@ Return ONLY the JSON, no other text.`;
         },
       ],
       temperature: 0.7,
-      max_tokens: 800,
+      max_tokens: 300,
     });
 
     const responseText = completion.choices[0]?.message?.content || '{}';
@@ -63,19 +59,18 @@ Return ONLY the JSON, no other text.`;
       const parsed = JSON.parse(jsonStr);
       
       return NextResponse.json({
-        enhanced: parsed.enhanced || description,
-        company: parsed.company || company,
-        position: parsed.position || position,
+        school: parsed.school || school,
+        degree: parsed.degree || degree,
         period: parsed.period || period,
       });
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
-      return NextResponse.json({ enhanced: responseText, company, position, period });
+      return NextResponse.json({ school, degree, period });
     }
   } catch (error) {
-    console.error('AI enhancement error:', error);
+    console.error('AI education enhancement error:', error);
     return NextResponse.json(
-      { error: 'Failed to enhance description' },
+      { error: 'Failed to enhance education data' },
       { status: 500 }
     );
   }

@@ -24,6 +24,7 @@ export const resumes = pgTable('resumes', {
     education: Array<{ id: number; school: string; degree: string; period: string }>;
     skills: string[];
     languages: string;
+    themeColor?: string;
   }>(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

@@ -38,6 +38,7 @@ export const authConfig: NextAuthConfig = {
         return {
           id: user.id.toString(),
           email: user.email,
+          name: user.email,
         };
       },
     }),
@@ -45,20 +46,24 @@ export const authConfig: NextAuthConfig = {
   adapter: undefined,
   session: {
     strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
     signIn: '/login',
   },
+  trustHost: true,
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.email = user.email;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.email = token.email as string;
       }
       return session;
     },

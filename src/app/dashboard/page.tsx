@@ -1,4 +1,4 @@
-import { auth } from '@/auth';
+import { auth, signOut } from '@/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/db';
 import { resumes } from '@/db/schema';
@@ -27,7 +27,10 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-bold text-slate-800">Resume Builder</h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-slate-600">{session.user.email}</span>
-            <form action="/api/auth/signout" method="POST">
+            <form action={async () => {
+              'use server';
+              await signOut({ redirectTo: '/login' });
+            }}>
               <button
                 type="submit"
                 className="flex items-center gap-2 text-slate-600 hover:text-red-600 transition"

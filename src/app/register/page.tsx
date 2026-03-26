@@ -1,56 +1,55 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { signIn } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, Lock, LogIn, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Mail, Lock, UserPlus, Eye, EyeOff } from 'lucide-react';
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-
-  useEffect(() => {
-    if (searchParams.get('registered')) {
-      setSuccessMessage('Account created successfully! Please sign in.');
-    }
-  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (result?.error) {
-        setError('Invalid email or password');
-      } else {
-        router.push('/dashboard');
-        router.refresh();
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Registration failed');
       }
-    } catch {
-      setError('Something went wrong. Please try again.');
+
+      // Redirect to login after successful registration
+      router.push('/login?registered=true');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickLogin = (userNum: number) => {
-    setEmail(`user${userNum}@gmail.com`);
-    setPassword('user123');
-    setError('');
   };
 
   return (
@@ -58,8 +57,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-slate-800 mb-2">Resume Builder</h1>
-            <p className="text-slate-500">Sign in to create your resume</p>
+            <h1 className="text-3xl font-bold text-slate-800 mb-2">Create Account</h1>
+            <p className="text-slate-500">Sign up to start building your resume</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -104,16 +103,26 @@ export default function LoginPage() {
               </div>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-slate-900"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            </div>
+
             {error && (
               <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg">
                 {error}
-              </div>
-            )}
-
-            {successMessage && (
-              <div className="bg-green-50 text-green-600 text-sm p-3 rounded-lg flex items-center gap-2">
-                <CheckCircle size={16} />
-                {successMessage}
               </div>
             )}
 
@@ -122,55 +131,16 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <LogIn size={20} />
-              {loading ? 'Signing in...' : 'Sign In'}
+              <UserPlus size={20} />
+              {loading ? 'Creating account...' : 'Create Account'}
             </button>
           </form>
 
-          <div className="mt-8">
-            <div className="relative mb-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white text-slate-500">Quick Login</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-5 gap-2">
-              {[1, 2, 3, 4, 5].map((num) => (
-                <button
-                  key={num}
-                  onClick={() => handleQuickLogin(num)}
-                  disabled={loading}
-                  className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition disabled:opacity-50"
-                >
-                  User {num}
-                </button>
-              ))}
-            </div>
-            <div className="grid grid-cols-5 gap-2 mt-2">
-              {[6, 7, 8, 9, 10].map((num) => (
-                <button
-                  key={num}
-                  onClick={() => handleQuickLogin(num)}
-                  disabled={loading}
-                  className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition disabled:opacity-50"
-                >
-                  User {num}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-slate-400 text-center mt-3">
-              All users have password: <code className="bg-slate-100 px-2 py-0.5 rounded">user123</code>
-            </p>
-          </div>
-
           <div className="mt-8 text-center">
             <p className="text-sm text-slate-600">
-              Don't have an account?{' '}
-              <Link href="/register" className="text-blue-600 hover:text-blue-700 font-medium">
-                Sign up
+              Already have an account?{' '}
+              <Link href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+                Sign in
               </Link>
             </p>
           </div>
