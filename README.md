@@ -2,8 +2,6 @@
 
 Повноцінний full-stack додаток для створення резюме з AI-асистентом.
 
-![Login Page](/screenshots/login.png)
-
 ## Технологічний стек
 
 - **Framework:** Next.js 16 (App Router)
@@ -23,8 +21,6 @@
 - ✅ PDF експорт через браузерний друк
 - ✅ Вибір кольорової схеми
 - ✅ Адаптивний дизайн
-
-![Dashboard](/screenshots/dashboard.png)
 
 ## Швидкий старт
 
@@ -111,26 +107,6 @@ pnpm dev
 npm run deploy
 ```
 
-## Скріншоти
-
-![Login](/screenshots/login2.png)
-![Login](/screenshots/login3.png)
-![Login](/screenshots/login4.png)
-![Editor](/screenshots/screenshot.png)
-![Editor](/screenshots/screenshot2.png)
-![Editor](/screenshots/screenshot3.png)
-![Editor](/screenshots/screenshot4.png)
-![Editor](/screenshots/screenshot5.png)
-![Editor](/screenshots/screenshot6.png)
-![Editor](/screenshots/screenshot7.png)
-![Editor](/screenshots/screenshot8.png)
-![Editor](/screenshots/screenshot9.png)
-![Editor](/screenshots/screenshot10.png)
-![Editor](/screenshots/screenshot11.png)
-![Editor](/screenshots/screenshot12.png)
-![Editor](/screenshots/screenshot13.png)
-![Editor](/screenshots/screenshot14.png)
-![Editor](/screenshots/screenshot15.png)
 
 ## Ліцензія
 
