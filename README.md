@@ -32,7 +32,7 @@ pnpm install
 
 ### 2. Налаштування змінних оточення
 
-Створіть файл `.env.local` на основі `.env.example`:
+Створіть файл `.env.local`:
 
 ```bash
 DATABASE_URL=your_neon_database_url
@@ -97,16 +97,9 @@ pnpm dev
 
 ## Деплой
 
-Найпростіше задеплоїти на [Vercel](https://vercel.com):
-
-1. Підключіть GitHub репозиторій
-2. Додайте змінні оточення
-3. Задеплойте
-
 ```bash
 npm run deploy
 ```
-
 
 ## Ліцензія
 
